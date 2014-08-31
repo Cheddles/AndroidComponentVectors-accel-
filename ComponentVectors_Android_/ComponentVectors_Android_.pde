@@ -1,6 +1,6 @@
 // This application written by Chris Heddles
 // Copyright 2014 South Australian Department of Education and Child Development (DECD)
-// Released under GPL V3
+// Released under GPL v3 (https://www.gnu.org/licenses/gpl.html)
 
 
 // import the Android libraries required to access the accelerometer
