@@ -3,11 +3,14 @@
 // Released under GPL v3 (https://www.gnu.org/licenses/gpl.html)
 
 // import the Android libraries required to access the accelerometer
-import android.content.Context;               
+import android.content.Context;
+import android.os.Bundle;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.view.WindowManager;
+import android.view.View;
 
 //declare objects required to access accelerometer data
 SensorManager sensorManager;      
@@ -15,10 +18,10 @@ SensorListener sensorListener;
 Sensor accelerometer;             
 
 final String units=" m/s/s"; // units for the vector (with a leading space)
-final int smoothFactor = 15;  // the number of acceleration samples to be used to calculate a rolling average
+final int smoothFactor = 20;  // the number of acceleration samples to be used to calculate a rolling average
 float[][] accelData = new float[3][smoothFactor];       // 3-value array to store X, Y and Z acceleration value sums
                                                       // with enough rows to store the smoothing data
-int counter=0;  // counts the number of acceleration events stored in accelData
+int counter=0;  // keeps track of the data line to be overwritten in accelData (cycled to replace oldest)
 
 int lineWeight;  // set line weight for all arrows
 float scale;  // pixels of vector per m/s/s vector value
@@ -35,8 +38,9 @@ Arrow horizontalComponent;
 
 void setup(){
  orientation(PORTRAIT);
+// getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 // frameRate(10);  // to keep the acceleration values from getting too jumpy
- scale=width/5.0;
+ scale=width/8.0;
  lineWeight = int(float(width)/80.0);
  totalVector = new Arrow (0, 0, 0, lineWeight);
  verticalComponent = new Arrow (255, 0, 0, lineWeight);
@@ -69,12 +73,12 @@ void draw(){
 
   // determine horizontal component directions
   String horizontalDirection=" right";
-  if (magnitudeHorizontal>0) horizontalDirection=" left";
+  if (magnitudeHorizontal<0) horizontalDirection=" left";
 
   // set display height to empty half of the screen and determine vertical component direction
   int textTop = int(float(height)/10);
   String verticalDirection = " down";
-  if (magnitudeVertical<0){
+  if (magnitudeVertical>0){
     textTop = int(6*float(height)/10);
     verticalDirection = " up";
   }
@@ -85,9 +89,9 @@ void draw(){
      horizontalComponent.display(width/2, height/2, abs(magnitudeHorizontal)*scale, angle);
   
   //draw vertical arrow starting from end of horizontal arrow
-  angle = PI/2;
-  if (verticalDirection==" up") angle=1.5*PI;
-  verticalComponent.display(int(width/2-(magnitudeHorizontal*scale)), height/2, abs(magnitudeVertical)*scale, angle);
+  angle = 1.5*PI;
+  if (verticalDirection==" down") angle=PI/2;
+  verticalComponent.display(int(width/2+(magnitudeHorizontal*scale)), height/2, abs(magnitudeVertical)*scale, angle);
 
   // draw total vector arrow (last, to ensure on top)
   angle = atan(magnitudeVertical/-magnitudeHorizontal);
@@ -98,39 +102,37 @@ void draw(){
   textSize(int(float(height/20)));
   textAlign(LEFT, TOP);
   fill(totalVector.colour[0],totalVector.colour[1],totalVector.colour[2]);
-  text(String.format("%.2f",magnitudeTotal)+units, width/6, textTop);
+  text(String.format("%.1f",magnitudeTotal)+units, width/6, textTop);
   fill(verticalComponent.colour[0],verticalComponent.colour[1],verticalComponent.colour[2]);
-  text(String.format("%.2f",abs(magnitudeVertical))+units+verticalDirection, width/6, textTop+(height/12));
+  text(String.format("%.1f",abs(magnitudeVertical))+units+verticalDirection, width/6, textTop+(height/12));
   fill(horizontalComponent.colour[0],horizontalComponent.colour[1],horizontalComponent.colour[2]);
-  text(String.format("%.2f",abs(magnitudeHorizontal))+units+horizontalDirection, width/6, textTop+(height/6));
-//    text(str(lineWeight), width/6, textTop+(height/6));
-  
-  //reset average values
-//  accelData = new float[3];
-//  counter=0;
+  text(String.format("%.1f",abs(magnitudeHorizontal))+units+horizontalDirection, width/6, textTop+(height/6));
 
 }
 
-void onResume()
-{
+void onCreate(Bundle bundle) {
+  super.onCreate(bundle);
+  // stop screen turning off automatically
+  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+}
+
+void onResume() {
   // restart sensors when app is resumed in foreground
   super.onResume();
   sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
   sensorListener = new SensorListener();
   accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
   sensorManager.registerListener(sensorListener, accelerometer, SensorManager.SENSOR_DELAY_FASTEST); 
-};
+}
  
-void onPause()
-{
+void onPause(){
   // shut down sensors to save battery power when app is in background
   sensorManager.unregisterListener(sensorListener);
   super.onPause();
-};
+}
  
  
-class SensorListener implements SensorEventListener
-{
+class SensorListener implements SensorEventListener{
   void onSensorChanged(SensorEvent event)
   {
     if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
@@ -143,8 +145,8 @@ class SensorListener implements SensorEventListener
       if (counter==smoothFactor) counter=0;  //reset the counter if it has reached the maximum number of samples
     }
   }
-  void onAccuracyChanged(Sensor sensor, int accuracy)
-  {
+  
+  void onAccuracyChanged(Sensor sensor, int accuracy) {
        //not required for this app (but required by Android)
   }
 }
