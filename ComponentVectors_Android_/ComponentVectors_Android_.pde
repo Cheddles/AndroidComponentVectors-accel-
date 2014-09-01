@@ -2,7 +2,6 @@
 // Copyright 2014 South Australian Department of Education and Child Development (DECD)
 // Released under GPL v3 (https://www.gnu.org/licenses/gpl.html)
 
-
 // import the Android libraries required to access the accelerometer
 import android.content.Context;               
 import android.hardware.Sensor;
@@ -15,13 +14,19 @@ SensorManager sensorManager;
 SensorListener sensorListener;
 Sensor accelerometer;             
 
-float[] accelData = new float[3];       // 3-value array to store X, Y and Z acceleration value sums
-int counter;  // counts the number of acceleration events stored in accelData
-
-Float scale;  // pixels of vector per m/s/s vector value
-String units=" m/s/s"; // units for the vector (with a leading space)
+final String units=" m/s/s"; // units for the vector (with a leading space)
+final int smoothFactor = 15;  // the number of acceleration samples to be used to calculate a rolling average
+float[][] accelData = new float[3][smoothFactor];       // 3-value array to store X, Y and Z acceleration value sums
+                                                      // with enough rows to store the smoothing data
+int counter=0;  // counts the number of acceleration events stored in accelData
 
 int lineWeight;  // set line weight for all arrows
+float scale;  // pixels of vector per m/s/s vector value
+
+// size of each vector (+/- for component vectors to indicate up/down or left/right)
+float magnitudeVertical;
+float magnitudeHorizontal;
+float magnitudeTotal;
 
 // set up arrows for each vector (red, green, blue, line weight)
 Arrow totalVector;
@@ -30,7 +35,7 @@ Arrow horizontalComponent;
 
 void setup(){
  orientation(PORTRAIT);
- frameRate(10);  // to keep the acceleration values from getting too jumpy
+// frameRate(10);  // to keep the acceleration values from getting too jumpy
  scale=width/5.0;
  lineWeight = int(float(width)/80.0);
  totalVector = new Arrow (0, 0, 0, lineWeight);
@@ -39,69 +44,76 @@ void setup(){
 }
 
 void draw(){
-  
+
   background(255);
-  if (counter != 0){
-    // divide acceleration sums by counter value to get average values
-    accelData[0]=accelData[0]/float(counter);
-    accelData[1]=accelData[1]/float(counter);
-    accelData[2]=accelData[2]/float(counter);
-    
-    // calculate vector values
-    float totalValue = pow(pow(accelData[0],2)+pow(accelData[1],2),0.5);
-    float verticalValue = abs(accelData[1]);
-    float horizontalValue = abs(accelData[0]);
+  
+  //reset average values
+  magnitudeHorizontal=0;
+  magnitudeVertical=0;
+  magnitudeTotal=0;
 
-    // determine horizontal component directions
-    String horizontalDirection=" right";
-    if (accelData[0]>0) horizontalDirection=" left";
-
-    // set display height to empty half of the screen and determine vertical component direction
-    int textTop = int(float(height)/10);
-    String verticalDirection = " down";
-    if (accelData[1]<0){
-      textTop = int(6*float(height)/10);
-      verticalDirection = " up";
-    }
-
-    // Draw arrows
-    float angle;  // angle of the arrow to be drawn (in radians counterclockwise from directly right)
-    
-    // draw horizontal arrow
-    angle = 0;
-    if (horizontalDirection==" left") angle=PI;
-    //    horizontalComponent.display(width/2, height/2, horizontalValue*width, angle);
-        horizontalComponent.display(width/2, height/2, horizontalValue*scale, angle);
-    
-    //draw vertical arrow starting from end of horizontal arrow
-    angle = PI/2;
-    if (verticalDirection==" up") angle=1.5*PI;
-    verticalComponent.display(int(width/2-accelData[0]*scale), height/2, verticalValue*scale, angle);
-
-    // draw total vector arrow (last, to ensure on top)
-    angle = atan(accelData[1]/-accelData[0]);
-    if (horizontalDirection==" left") angle=angle+PI;
-    totalVector.display(width/2, height/2, totalValue*scale, angle); // draw this last to display on top
-    
-    // display vector values (colour coded to match vector arrows)
-    textSize(int(float(height/20)));
-    textAlign(LEFT, TOP);
-    fill(totalVector.colour[0],totalVector.colour[1],totalVector.colour[2]);
-    text(String.format("%.2f",totalValue)+units, width/6, textTop);
-    fill(verticalComponent.colour[0],verticalComponent.colour[1],verticalComponent.colour[2]);
-    text(String.format("%.2f",verticalValue)+units+verticalDirection, width/6, textTop+(height/12));
-    fill(horizontalComponent.colour[0],horizontalComponent.colour[1],horizontalComponent.colour[2]);
-    text(String.format("%.2f",horizontalValue)+units+horizontalDirection, width/6, textTop+(height/6));
-//    text(str(lineWeight), width/6, textTop+(height/6));
-    
-    //reset average values
-    accelData = new float[3];
-    counter=0;
+  // calculate average component values from array of <smoothFactor> samples
+  for (int i=0; i<smoothFactor; i++){
+    magnitudeHorizontal=magnitudeHorizontal+accelData[0][i];
+    magnitudeVertical=magnitudeVertical+accelData[1][i];
   }
+  
+  magnitudeHorizontal = magnitudeHorizontal/float(smoothFactor);
+  magnitudeVertical = magnitudeVertical/float(smoothFactor);
+  magnitudeTotal = pow(pow(magnitudeHorizontal,2)+pow(magnitudeVertical,2),0.5);  // using Pythagorus' theorum
+  
+  // calculate vector values
+//  float totalValue = pow(pow(accelData[0],2)+pow(accelData[1],2),0.5);
+//  float verticalValue = abs(accelData[1]);
+//  float horizontalValue = abs(accelData[0]);
+
+  // determine horizontal component directions
+  String horizontalDirection=" right";
+  if (magnitudeHorizontal>0) horizontalDirection=" left";
+
+  // set display height to empty half of the screen and determine vertical component direction
+  int textTop = int(float(height)/10);
+  String verticalDirection = " down";
+  if (magnitudeVertical<0){
+    textTop = int(6*float(height)/10);
+    verticalDirection = " up";
+  }
+  
+  // draw horizontal arrow
+  float angle = 0;
+  if (horizontalDirection==" left") angle=PI;
+     horizontalComponent.display(width/2, height/2, abs(magnitudeHorizontal)*scale, angle);
+  
+  //draw vertical arrow starting from end of horizontal arrow
+  angle = PI/2;
+  if (verticalDirection==" up") angle=1.5*PI;
+  verticalComponent.display(int(width/2-(magnitudeHorizontal*scale)), height/2, abs(magnitudeVertical)*scale, angle);
+
+  // draw total vector arrow (last, to ensure on top)
+  angle = atan(magnitudeVertical/-magnitudeHorizontal);
+  if (horizontalDirection==" left") angle=angle+PI;
+  totalVector.display(width/2, height/2, magnitudeTotal*scale, angle); // draw this last to display on top
+  
+  // display vector values (colour coded to match vector arrows)
+  textSize(int(float(height/20)));
+  textAlign(LEFT, TOP);
+  fill(totalVector.colour[0],totalVector.colour[1],totalVector.colour[2]);
+  text(String.format("%.2f",magnitudeTotal)+units, width/6, textTop);
+  fill(verticalComponent.colour[0],verticalComponent.colour[1],verticalComponent.colour[2]);
+  text(String.format("%.2f",abs(magnitudeVertical))+units+verticalDirection, width/6, textTop+(height/12));
+  fill(horizontalComponent.colour[0],horizontalComponent.colour[1],horizontalComponent.colour[2]);
+  text(String.format("%.2f",abs(magnitudeHorizontal))+units+horizontalDirection, width/6, textTop+(height/6));
+//    text(str(lineWeight), width/6, textTop+(height/6));
+  
+  //reset average values
+//  accelData = new float[3];
+//  counter=0;
+
 }
 
 void onResume()
 {
+  // restart sensors when app is resumed in foreground
   super.onResume();
   sensorManager = (SensorManager)getSystemService(Context.SENSOR_SERVICE);
   sensorListener = new SensorListener();
@@ -111,6 +123,7 @@ void onResume()
  
 void onPause()
 {
+  // shut down sensors to save battery power when app is in background
   sensorManager.unregisterListener(sensorListener);
   super.onPause();
 };
@@ -122,10 +135,12 @@ class SensorListener implements SensorEventListener
   {
     if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
     {
-      accelData[0] = accelData[0]+event.values[0];
-      accelData[1] = accelData[1]+event.values[1];
-      accelData[2] = accelData[2]+event.values[2];
+      // replace the oldest data samples with new data
+      accelData[0][counter] = event.values[0];
+      accelData[1][counter] = event.values[1];
+      accelData[2][counter] = event.values[2];
       counter=counter+1;
+      if (counter==smoothFactor) counter=0;  //reset the counter if it has reached the maximum number of samples
     }
   }
   void onAccuracyChanged(Sensor sensor, int accuracy)
