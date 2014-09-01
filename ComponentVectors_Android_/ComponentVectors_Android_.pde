@@ -19,8 +19,8 @@ Sensor accelerometer;
 
 final String units=" m/s/s"; // units for the vector (with a leading space)
 final int smoothFactor = 20;  // the number of acceleration samples to be used to calculate a rolling average
-float[][] accelData = new float[3][smoothFactor];       // 3-value array to store X, Y and Z acceleration value sums
-                                                      // with enough rows to store the smoothing data
+float[][] accelData = new float[3][smoothFactor]; // 3-value array to store X, Y and Z acceleration value sums
+                                                  // with enough rows to store the smoothing data
 int counter=0;  // keeps track of the data line to be overwritten in accelData (cycled to replace oldest)
 
 int lineWeight;  // set line weight for all arrows
@@ -38,8 +38,6 @@ Arrow horizontalComponent;
 
 void setup(){
  orientation(PORTRAIT);
-// getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
-// frameRate(10);  // to keep the acceleration values from getting too jumpy
  scale=width/8.0;
  lineWeight = int(float(width)/80.0);
  totalVector = new Arrow (0, 0, 0, lineWeight);
@@ -56,26 +54,24 @@ void draw(){
   magnitudeVertical=0;
   magnitudeTotal=0;
 
-  // calculate average component values from array of <smoothFactor> samples
+  // calculate total component values from array of <smoothFactor> samples (X and Y only)
   for (int i=0; i<smoothFactor; i++){
     magnitudeHorizontal=magnitudeHorizontal+accelData[0][i];
     magnitudeVertical=magnitudeVertical+accelData[1][i];
   }
   
+  // divide by number of samples to determine average value for each component
   magnitudeHorizontal = magnitudeHorizontal/float(smoothFactor);
   magnitudeVertical = magnitudeVertical/float(smoothFactor);
-  magnitudeTotal = pow(pow(magnitudeHorizontal,2)+pow(magnitudeVertical,2),0.5);  // using Pythagorus' theorum
   
-  // calculate vector values
-//  float totalValue = pow(pow(accelData[0],2)+pow(accelData[1],2),0.5);
-//  float verticalValue = abs(accelData[1]);
-//  float horizontalValue = abs(accelData[0]);
-
+  // Calculate total vector size
+  magnitudeTotal = pow(pow(magnitudeHorizontal,2)+pow(magnitudeVertical,2),0.5);  // using Pythagorus' theorum
+ 
   // determine horizontal component directions
   String horizontalDirection=" right";
   if (magnitudeHorizontal<0) horizontalDirection=" left";
 
-  // set display height to empty half of the screen and determine vertical component direction
+  // set text display height to empty half of the screen and determine vertical component direction
   int textTop = int(float(height)/10);
   String verticalDirection = " down";
   if (magnitudeVertical>0){
@@ -107,7 +103,6 @@ void draw(){
   text(String.format("%.1f",abs(magnitudeVertical))+units+verticalDirection, width/6, textTop+(height/12));
   fill(horizontalComponent.colour[0],horizontalComponent.colour[1],horizontalComponent.colour[2]);
   text(String.format("%.1f",abs(magnitudeHorizontal))+units+horizontalDirection, width/6, textTop+(height/6));
-
 }
 
 void onCreate(Bundle bundle) {
@@ -129,24 +124,4 @@ void onPause(){
   // shut down sensors to save battery power when app is in background
   sensorManager.unregisterListener(sensorListener);
   super.onPause();
-}
- 
- 
-class SensorListener implements SensorEventListener{
-  void onSensorChanged(SensorEvent event)
-  {
-    if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER)
-    {
-      // replace the oldest data samples with new data
-      accelData[0][counter] = event.values[0];
-      accelData[1][counter] = event.values[1];
-      accelData[2][counter] = event.values[2];
-      counter=counter+1;
-      if (counter==smoothFactor) counter=0;  //reset the counter if it has reached the maximum number of samples
-    }
-  }
-  
-  void onAccuracyChanged(Sensor sensor, int accuracy) {
-       //not required for this app (but required by Android)
-  }
 }

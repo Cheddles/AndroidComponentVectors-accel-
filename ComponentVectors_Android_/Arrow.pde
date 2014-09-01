@@ -12,7 +12,6 @@ class Arrow{
   
   void display(int x, int y, float len, float angle){
     strokeWeight(lineThickness);
-//    strokeWeight(5);
     stroke(colour[0], colour[1], colour[2]);
     pushMatrix();
       translate(x, y);
@@ -21,8 +20,6 @@ class Arrow{
       line(len, 0, len - min(height/50, len/3), -min(height/50,len/3));
       line(len, 0, len - min(height/50, len/3), min(height/50,len/3));
     popMatrix();
-    // display the value
-
   }
   
 }
